@@ -1,0 +1,9 @@
+# stack-version: 0.1.0
+# Installed by agentic-blueprint bootstrap. Thin caller - logic lives in the stack repo.
+name: CI
+on:
+  push: { branches: [main, staging] }
+  pull_request:
+jobs:
+  ci:
+    uses: mitchellmclennan/agentic-blueprint/.github/workflows/stack-ci.yml@v0.1.0

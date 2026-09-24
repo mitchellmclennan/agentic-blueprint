@@ -1,0 +1,18 @@
+# stack-version: 0.1.0
+# stack.yaml - per-repo consumption of agentic-blueprint stack. Idempotent bootstrap owns this file.
+stack:
+  repo: mitchellmclennan/agentic-blueprint
+  version: 0.1.0          # pin; stack-sync proposes bumps
+repo:
+  package_manager: pnpm
+  node: "22"
+  affected_lint: true
+  build_on_main_only: true
+box:                       # reproducible slice budgets (tonight's forge values are the default)
+  memory_total_mb: 14592
+  slices:
+    laya: 4096             # resident model service
+    batch: 2560            # reviews + heavy one-shots (GLM needs >2G)
+    ci: 1536               # CI runners
+    lanes: 1536            # lane dev servers/builds (most interruptible)
+  memguard_floor_mb: 1536

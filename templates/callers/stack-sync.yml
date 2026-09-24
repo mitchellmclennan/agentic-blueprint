@@ -1,0 +1,28 @@
+# stack-version: 0.1.0
+# Installed by agentic-blueprint bootstrap. Watches the stack repo tag and opens a bump PR.
+name: Stack sync
+on:
+  schedule: [{ cron: "17 5 * * *" }]
+  workflow_dispatch:
+permissions: { contents: write, pull-requests: write }
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Bump stack pin if behind
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          cur=$(grep -hoE "agentic-blueprint/.github/workflows/[a-z-]+\.yml@v[0-9.]+" .github/workflows/*.yml | grep -oE "v[0-9.]+$" | sort -uV | tail -1)
+          latest=$(gh api repos/mitchellmclennan/agentic-blueprint/tags --jq ".[0].name")
+          [ "$cur" = "$latest" ] && { echo "stack current ($cur)"; exit 0; }
+          echo "stack $cur -> $latest"
+          git config user.name "stack-sync"; git config user.email "stack-sync@local"
+          git checkout -b "stack/bump-$latest"
+          sed -i -E "s|(agentic-blueprint/.github/workflows/[a-z-]+\.yml)@v[0-9.]+|\1@$latest|g" .github/workflows/*.yml
+          sed -i -E "s|^  version: .*|  version: ${latest#v}|" stack.yaml
+          git commit -am "chore: bump agentic stack $cur -> $latest"
+          git push -u origin "stack/bump-$latest"
+          gh pr create --title "chore: bump agentic stack to $latest" --body "Automated stack pin bump. Review the stack repo tag diff before merge."

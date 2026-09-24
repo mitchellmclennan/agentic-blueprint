@@ -1,0 +1,36 @@
+# stack-version: 0.1.0
+name: stack-security (reusable)
+on:
+  workflow_call:
+    inputs:
+      languages:  { type: string, default: "javascript-typescript" }
+      runs-on:    { type: string, default: "ubuntu-latest" }
+jobs:
+  codeql:
+    runs-on: ${{ inputs.runs-on }}
+    permissions: { actions: read, contents: read, security-events: write }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: github/codeql-action/init@3b0bd1d116c0bde30213346b22d4f634d96a2fb0 # v3
+        with:
+          languages: ${{ inputs.languages }}
+      - uses: github/codeql-action/analyze@3b0bd1d116c0bde30213346b22d4f634d96a2fb0 # v3
+  secrets:
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with: { fetch-depth: 0 }
+      # TruffleHog OSS is license-free for org-owned repos.
+      - uses: trufflesecurity/trufflehog@363923b901c911a9164f50b6c423f47c15372b1c # v3.97.4
+        with:
+          extra_args: --only-verified
+  sca:
+    runs-on: ${{ inputs.runs-on }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: osv-scanner (lockfiles)
+        run: |
+          curl -sSfL https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64 -o /tmp/osv-scanner
+          chmod +x /tmp/osv-scanner
+          /tmp/osv-scanner scan --no-ignore -r . --format sarif --output osv.sarif || true
+          /tmp/osv-scanner scan --no-ignore -r .
