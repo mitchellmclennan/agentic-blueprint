@@ -1,0 +1,7 @@
+[Unit]
+Description=Audit loop: %N
+
+[Service]
+Type=oneshot
+Slice=batch.slice
+ExecStart=%h/audit-fleet/scripts/%N.sh

@@ -1,0 +1,11 @@
+[Unit]
+Description=Memory watchdog (TERM/KILL largest RSS in sacrificial slices)
+After=default.target
+
+[Service]
+ExecStart=%h/bin/memguard.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
