@@ -1,10 +1,26 @@
 {
   "hooks": {
     "PreToolUse": [
-      {"matcher":"Bash|Write|Edit|MultiEdit|ApplyPatch", "hooks":[{"type":"command","command":"bash .claude/hooks/guard.sh pre"}]}
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit|ApplyPatch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \\\"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard.sh\\\" pre"
+          }
+        ]
+      }
     ],
     "PostToolUse": [
-      {"matcher":"Bash|Write|Edit|MultiEdit|ApplyPatch", "hooks":[{"type":"command","command":"bash .claude/hooks/guard.sh post"}]}
+      {
+        "matcher": "Bash|Write|Edit|MultiEdit|ApplyPatch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \\\"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard.sh\\\" post"
+          }
+        ]
+      }
     ]
   }
 }
