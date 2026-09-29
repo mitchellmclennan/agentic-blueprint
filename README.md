@@ -67,3 +67,7 @@ flowchart TB
 - `docs/08-watchdogs.md` - watchdog design rules
 - `ADOPT.md` - how to pull this onto any codebase
 - `templates/` - copy-ready units and prompt skeletons
+
+## Write-time guardrails
+
+Copy `templates/guardrails` into the project root and merge the Claude settings snippet with existing settings. OpenCode loads the plugin automatically. See `templates/guardrails/.agent-guardrails/README.md`; activate the Git hook separately in each worktree. This is an early deterministic filter, not a substitute for CI, independent review, or per-project rules.
