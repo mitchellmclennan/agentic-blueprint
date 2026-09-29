@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \\\"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard.sh\\\" pre"
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard.sh\" pre"
           }
         ]
       }
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \\\"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard.sh\\\" post"
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/guard.sh\" post"
           }
         ]
       }
