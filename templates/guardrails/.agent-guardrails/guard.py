@@ -24,26 +24,39 @@ def deny(message):
 
 
 def check_command(command):
-    for pattern, reason in BAD_COMMANDS:
-        if re.search(pattern, command):
-            return deny(reason + '; use a reviewed, scoped alternative')
-    # Split shell operators before token inspection; no execution or network access.
-    segments = re.split(r'[;&|\n]', command)
-    for segment in segments:
-        try:
-            tokens = shlex.split(segment)
-        except ValueError:
-            return deny('unparseable shell command')
-        if not tokens:
-            continue
-        # After a curl/wget pipe, /bin/bash and env bash are also executable sinks.
-        if re.search(r'(?i)\b(?:curl|wget)\b[^\n|]*\|\s*(?:(?:/usr/bin/|/bin/)?env\s+)?(?:/usr/bin/|/bin/)?(?:bash|sh)\b', command):
-            return deny('download-and-execute; use a reviewed, scoped alternative')
-        for idx, token in enumerate(tokens):
+    # shlex retains quoted operators as data and emits real shell operators.
+    try:
+        lexer = shlex.shlex(command, posix=True, punctuation_chars=';&|')
+        lexer.whitespace_split = True
+        tokens = list(lexer)
+    except ValueError:
+        return deny('unparseable shell command')
+    segments = []
+    operators = []
+    current = []
+    for token in tokens:
+        if token and set(token) <= set(';&|'):
+            segments.append(current)
+            operators.append(token)
+            current = []
+        else:
+            current.append(token)
+    segments.append(current)
+    for idx, segment in enumerate(segments):
+        if not segment: continue
+        # Check actual pipeline stages, not pipes embedded inside quotes.
+        if idx and '|' in operators[idx - 1] and segments[idx - 1]:
+            prev = segments[idx - 1]
+            if any(t.rsplit('/', 1)[-1] in ('curl', 'wget') for t in prev):
+                sink = segment[:]
+                if sink and sink[0].rsplit('/', 1)[-1] == 'env': sink = sink[1:]
+                if sink and sink[0].rsplit('/', 1)[-1] in ('bash', 'sh'):
+                    return deny('download-and-execute; use a reviewed, scoped alternative')
+        for pos, token in enumerate(segment):
             executable = token.rsplit('/', 1)[-1]
             if executable == 'rm':
                 recursive = force = False
-                for flag in tokens[idx + 1:]:
+                for flag in segment[pos + 1:]:
                     if flag == '--': break
                     if flag == '--recursive': recursive = True
                     elif flag == '--force': force = True
@@ -53,26 +66,30 @@ def check_command(command):
                 if recursive and force:
                     return deny('recursive forced removal; use a reviewed, scoped alternative')
             if executable == 'git':
-                pos = idx + 1
-                # git -C <dir> and git -c key=value may precede the subcommand.
-                while pos < len(tokens):
-                    if tokens[pos] in ('-C', '-c', '--git-dir', '--work-tree'):
-                        pos += 2
-                    elif tokens[pos].startswith(('-C', '-c', '--git-dir=', '--work-tree=')) and tokens[pos] not in ('-C', '-c'):
-                        pos += 1
+                args = segment[pos + 1:]
+                i = 0
+                while i < len(args):
+                    opt = args[i]
+                    if opt in ('-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env'):
+                        i += 2
+                    elif opt.startswith(('-C', '-c', '--git-dir=', '--work-tree=', '--namespace=', '--config-env=')) and opt not in ('-C', '-c'):
+                        i += 1
+                    elif opt in ('--no-pager', '--paginate', '-p', '-P', '--bare', '--no-replace-objects', '--literal-pathspecs', '--no-optional-locks'):
+                        i += 1
                     else:
                         break
-                if pos >= len(tokens): continue
-                verb = tokens[pos]
-                args = tokens[pos + 1:]
-                if verb == 'reset' and '--hard' in args:
+                if i >= len(args): continue
+                verb, rest = args[i], args[i + 1:]
+                if verb == 'reset' and any(flag == '--hard' or flag.startswith('--hard=') for flag in rest):
                     return deny('destructive git reset; use a reviewed, scoped alternative')
-                if verb == 'clean':
-                    flags = [t for t in args if t.startswith('-')]
-                    if any(t in ('--force',) or (t.startswith('-') and not t.startswith('--') and 'f' in t[1:]) for t in flags):
-                        return deny('destructive git clean; use a reviewed, scoped alternative')
-                if verb == 'push' and any(t in ('-f', '--force', '--force-with-lease') for t in args):
+                if verb == 'clean' and any(t == '--force' or (t.startswith('-') and not t.startswith('--') and 'f' in t[1:]) for t in rest):
+                    return deny('destructive git clean; use a reviewed, scoped alternative')
+                if verb == 'push' and any(t in ('-f', '--force', '--force-with-lease') or t.startswith('--force-with-lease=') for t in rest):
                     return deny('force push; use a reviewed, scoped alternative')
+        # SQL is checked on actual unquoted command text as a conservative secondary filter.
+        for pattern, reason in BAD_COMMANDS:
+            if re.search(pattern, ' '.join(segment)):
+                return deny(reason + '; use a reviewed, scoped alternative')
     return 0
 
 

@@ -23,6 +23,14 @@ class GuardTests(unittest.TestCase):
     def test_outside(self):
         with redirect_stderr(io.StringIO()):
             self.assertEqual(guard.check_path('../other/file'), 2)
+    def test_quoted_operators_are_data(self):
+        for command in ('echo "foo | bar"', 'echo "one;two"', 'python -c "print(1|2)"'):
+            with self.subTest(command=command):
+                self.assertEqual(guard.check_command(command), 0)
+    def test_git_global_flags_and_assignments(self):
+        for command in ('git reset --hard=HEAD', 'git --no-pager reset --hard HEAD'):
+            with self.subTest(command=command), redirect_stderr(io.StringIO()):
+                self.assertEqual(guard.check_command(command), 2)
     def test_git_c_destructive(self):
         for command in ('git -C . reset --hard HEAD', 'git -C . clean -df', 'git clean -d -f'):
             with self.subTest(command=command), redirect_stderr(io.StringIO()):
