@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -12,7 +13,6 @@ BAD_COMMANDS = [
     (r'(?i)\bgit\s+push\s+(?:[^;&|\n]*\s)?(?:--force(?:-with-lease)?|-f)\b', 'force push'),
     (r'(?i)\bgit\s+(?:reset\s+--hard|clean\s+-[a-z]*f)', 'destructive git operation'),
     (r'(?i)\b(?:curl|wget)\b[^\n|]*\|\s*(?:bash|sh)\b', 'download-and-execute'),
-    (r'(?i)\brm\s+-[a-z]*r[a-z]*f\b', 'recursive forced removal'),
     (r'(?i)\b(?:drop\s+(?:table|database)|truncate\s+table)\b', 'destructive SQL'),
 ]
 PROTECTED = re.compile(r'(^|/)(?:\.env(?:\..*)?|\.git/.*|id_(?:rsa|ed25519).*|.*\.(?:pem|key|p12))$')
@@ -29,12 +29,31 @@ def check_command(command):
     for pattern, reason in BAD_COMMANDS:
         if re.search(pattern, command):
             return deny(reason + '; use a reviewed, scoped alternative')
+    # Check flag meaning, not spelling or order: -rf, -fr, -r -f,
+    # --recursive --force, and mixed forms all have the same effect.
+    for match in re.finditer(r'(?<![\w./-])rm(?:\s|$)', command):
+        segment = re.split(r'[;|&\n]', command[match.start():], maxsplit=1)[0]
+        try:
+            tokens = shlex.split(segment)
+        except ValueError:
+            return deny('unparseable rm command')
+        recursive = force = False
+        for flag in tokens[1:]:
+            if flag == '--':
+                break
+            if flag == '--recursive': recursive = True
+            elif flag == '--force': force = True
+            elif flag.startswith('-') and not flag.startswith('--'):
+                recursive |= any(ch in flag[1:] for ch in 'rR')
+                force |= 'f' in flag[1:]
+        if recursive and force:
+            return deny('recursive forced removal; use a reviewed, scoped alternative')
     return 0
 
 
 def check_path(raw):
-    if not raw:
-        return 0
+    if not isinstance(raw, str) or not raw.strip():
+        return deny('missing write destination')
     path = Path(raw)
     absolute = (path if path.is_absolute() else ROOT / path).resolve()
     if not absolute.is_relative_to(ROOT.resolve()):
@@ -53,10 +72,23 @@ def tool(event):
     if name in ('bash', 'shell'):
         return check_command(str(args.get('command') or ''))
     if name in ('write', 'edit', 'multiedit', 'apply_patch', 'patch'):
-        for key in ('file_path', 'filePath', 'path'):
-            if key in args:
-                return check_path(str(args[key]))
-        return deny('write path not inspectable')
+        paths = []
+        def collect(value):
+            if isinstance(value, dict):
+                for key, item in value.items():
+                    if key in ('path', 'file_path', 'filePath', 'destination_path', 'destinationPath', 'output_path', 'outputPath'):
+                        paths.extend(item if isinstance(item, list) else [item])
+                    elif isinstance(item, (dict, list)):
+                        collect(item)
+            elif isinstance(value, list):
+                for item in value: collect(item)
+        collect(args)
+        if not paths:
+            return deny('write path not inspectable')
+        for path in paths:
+            status = check_path(path)
+            if status: return status
+        return 0
     return 0
 
 

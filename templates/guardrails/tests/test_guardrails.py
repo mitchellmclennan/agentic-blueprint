@@ -23,6 +23,19 @@ class GuardTests(unittest.TestCase):
     def test_outside(self):
         with redirect_stderr(io.StringIO()):
             self.assertEqual(guard.check_path('../other/file'), 2)
+    def test_empty_path(self):
+        with redirect_stderr(io.StringIO()):
+            self.assertEqual(guard.tool({'tool_name':'Write','tool_input':{'file_path':''}}), 2)
+    def test_second_path_outside(self):
+        with redirect_stderr(io.StringIO()):
+            self.assertEqual(guard.tool({'tool_name':'Write','tool_input':{'file_path':'src/a','path':'/tmp/outside'}}), 2)
+    def test_nested_paths(self):
+        with redirect_stderr(io.StringIO()):
+            self.assertEqual(guard.tool({'tool_name':'MultiEdit','tool_input':{'edits':[{'filePath':'src/a'}, {'filePath':'../outside'}]}}), 2)
+    def test_rm_flag_variants(self):
+        for command in ('rm -fr build', 'rm -f -r build', 'rm -r -f build', 'rm --force --recursive build', 'rm --recursive -f build', 'rm -R -f build'):
+            with self.subTest(command=command), redirect_stderr(io.StringIO()):
+                self.assertEqual(guard.check_command(command), 2)
     def test_normal_file(self):
         self.assertEqual(guard.check_path('src/app.py'), 0)
 
