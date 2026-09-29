@@ -1,0 +1,3 @@
+# Guardrail Python bytecode
+.agent-guardrails/**/__pycache__/
+.agent-guardrails/**/*.pyc

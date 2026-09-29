@@ -8,5 +8,10 @@ if ! git config --local --get extensions.worktreeConfig | grep -qx true; then
   echo "Worktree-local config is not enabled. Have the repository owner run git config extensions.worktreeConfig true before installing; no shared config changed." >&2
   exit 1
 fi
+existing=$(git config --show-origin --get core.hooksPath || true)
+if [ -n "$existing" ]; then
+  echo "Existing core.hooksPath ($existing) will not be overwritten. Compose this guard with your current hooks manually, then verify both fire." >&2
+  exit 1
+fi
 git config --worktree core.hooksPath .agent-guardrails
 printf 'Guardrails installed in %s\n' "$root"
