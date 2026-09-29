@@ -42,16 +42,25 @@ def check_command(command):
         else:
             current.append(token)
     segments.append(current)
+    pipeline_has_fetch = False
     for idx, segment in enumerate(segments):
+        if idx == 0 or '|' not in operators[idx - 1]:
+            pipeline_has_fetch = False
         if not segment: continue
-        # Check actual pipeline stages, not pipes embedded inside quotes.
-        if idx and '|' in operators[idx - 1] and segments[idx - 1]:
-            prev = segments[idx - 1]
-            if any(t.rsplit('/', 1)[-1] in ('curl', 'wget') for t in prev):
-                sink = segment[:]
-                if sink and sink[0].rsplit('/', 1)[-1] == 'env': sink = sink[1:]
-                if sink and sink[0].rsplit('/', 1)[-1] in ('bash', 'sh'):
-                    return deny('download-and-execute; use a reviewed, scoped alternative')
+        if pipeline_has_fetch:
+            sink = segment[:]
+            if sink and sink[0].rsplit('/', 1)[-1] == 'env':
+                sink = sink[1:]
+                while sink and sink[0].startswith('-'):
+                    # env -i / -u NAME / --unset=NAME; conservative skip for env options.
+                    if sink[0] in ('-u', '--unset') and len(sink) > 1: sink = sink[2:]
+                    else: sink = sink[1:]
+                while sink and '=' in sink[0] and not sink[0].startswith('='):
+                    sink = sink[1:]
+            if sink and sink[0].rsplit('/', 1)[-1] in ('bash', 'sh'):
+                return deny('download-and-execute; use a reviewed, scoped alternative')
+        if any(t.rsplit('/', 1)[-1] in ('curl', 'wget') for t in segment):
+            pipeline_has_fetch = True
         for pos, token in enumerate(segment):
             executable = token.rsplit('/', 1)[-1]
             if executable == 'rm':
