@@ -1,0 +1,30 @@
+name: guardrails-ci
+on:
+  pull_request:
+  push:
+    branches: [lane/guardrails, main]
+permissions:
+  contents: read
+jobs:
+  guardrails:
+    runs-on: [self-hosted, Linux, X64, forge-blueprint]
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Guardrail unit tests
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: python3 -m unittest discover -s templates/guardrails/tests -v
+      - name: Hook shell syntax
+        run: |
+          bash -n templates/guardrails/.agent-guardrails/pre-commit
+          bash -n templates/guardrails/.agent-guardrails/install.sh
+          bash -n templates/guardrails/.claude/hooks/guard.sh
+      - name: JSON and Python syntax
+        run: |
+          python3 -m json.tool templates/guardrails/.claude/settings.guardrails.json >/dev/null
+          PYTHONDONTWRITEBYTECODE=1 python3 - <<'PY'
+          from pathlib import Path
+          for path in Path("templates/guardrails").rglob("*.py"):
+              compile(path.read_text(), str(path), "exec")
+          PY
