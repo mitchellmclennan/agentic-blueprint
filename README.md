@@ -67,3 +67,7 @@ flowchart TB
 - `docs/08-watchdogs.md` - watchdog design rules
 - `ADOPT.md` - how to pull this onto any codebase
 - `templates/` - copy-ready units and prompt skeletons
+
+## Frontend rules in every Clanker prompt
+
+Use `templates/frontend-rules.md` for every builder/reviewer/lane/retry/resume/ad-hoc prompt. The lane and review templates embed the full rules. Install the full rules additively into each executor user's `~/.config/opencode/AGENTS.md`; never replace existing rules. Isolated or private-HOME/container runs must explicitly copy or mount the rules and verify inclusion before a run. See `docs/09-frontend-quality.md`. Existing product branding stays locked; these rules do not authorize an audit, redesign or production change.

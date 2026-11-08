@@ -44,3 +44,7 @@ Order matters. Each layer assumes the one below it.
 - `templates/example.timer` + `templates/example.service` - the timer pair
 - `templates/lane-prompt.md` - the lane prompt skeleton
 - `templates/review-brief.md` - the adversarial review brief skeleton
+
+## Frontend rules in every Clanker prompt
+
+Use `templates/frontend-rules.md` for every builder/reviewer/lane/retry/resume/ad-hoc prompt. The lane and review templates embed the full rules. Install the full rules additively into each executor user's `~/.config/opencode/AGENTS.md`; never replace existing rules. Isolated or private-HOME/container runs must explicitly copy or mount the rules and verify inclusion before a run. See `docs/09-frontend-quality.md`. Existing product branding stays locked; these rules do not authorize an audit, redesign or production change.
